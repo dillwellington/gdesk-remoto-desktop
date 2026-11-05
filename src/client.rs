@@ -119,6 +119,9 @@ pub const LOGIN_MSG_PASSWORD_WRONG: &str = "Wrong Password";
 pub const LOGIN_MSG_2FA_WRONG: &str = "Wrong 2FA Code";
 pub const REQUIRE_2FA: &'static str = "2FA Required";
 pub const LOGIN_MSG_NO_PASSWORD_ACCESS: &str = "No Password Access";
+/// GDesk: senha aceita, aguardando o usuário da máquina aceitar; depois do
+/// prefixo vêm os segundos até conectar sozinho.
+pub const LOGIN_MSG_GDESK_AGUARDANDO: &str = "GDesk Aguardando Aceite:";
 pub const LOGIN_MSG_OFFLINE: &str = "Offline";
 pub const LOGIN_SCREEN_WAYLAND: &str = "Wayland login screen is not supported";
 #[cfg(target_os = "linux")]
@@ -4533,6 +4536,16 @@ pub fn handle_login_error(
                 .set_option("trust-this-device".to_string(), "".to_string());
         }
         interface.msgbox("input-2fa", err, "", "");
+        true
+    } else if let Some(segundos) = err.strip_prefix(LOGIN_MSG_GDESK_AGUARDANDO) {
+        // A tela do técnico (showWaitAcceptDialog) reconhece o prefixo e
+        // mostra a contagem regressiva.
+        interface.msgbox(
+            "wait-remote-accept-nook",
+            "Prompt",
+            &format!("gdesk-aguardar:{}", segundos.trim()),
+            "",
+        );
         true
     } else if LOGIN_ERROR_MAP.contains_key(err) {
         if let Some(msgbox_info) = LOGIN_ERROR_MAP.get(err) {

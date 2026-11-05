@@ -178,6 +178,26 @@ async fn unauthorized_evicted(unauthorized: &Option<UnauthorizedID>) {
 
 /// Resolves at the login deadline of a connection started at `started`; never once it has
 /// authorized.
+/// GDesk: quantos segundos a conexão (já com a senha certa) espera o usuário
+/// da máquina aceitar antes de conectar sozinha. 0 = conecta direto. Vem da
+/// configuração da empresa no GDesk, gravada pelo agente com
+/// `--option gdesk-confirmar-segundos N`. Limitado bem abaixo do LOGIN_GRACE.
+fn gdesk_confirmar_segundos() -> u64 {
+    Config::get_option("gdesk-confirmar-segundos")
+        .trim()
+        .parse::<u64>()
+        .unwrap_or(0)
+        .min(120)
+}
+
+/// GDesk: dispara quando o prazo de confirmação acaba sem resposta.
+async fn gdesk_confirmar_prazo(ate: Option<Instant>) {
+    match ate {
+        Some(t) => time::sleep_until(t).await,
+        None => std::future::pending().await,
+    }
+}
+
 async fn login_deadline(authorized: bool, started: Instant) {
     if authorized {
         return std::future::pending().await;
@@ -376,6 +396,8 @@ pub struct Connection {
     unauthorized_id: Option<UnauthorizedID>,
     require_2fa: Option<totp_rs::TOTP>,
     awaiting_2fa: bool,
+    // GDesk: senha certa, aguardando o usuário aceitar até este instante.
+    gdesk_confirmar_ate: Option<Instant>,
     trusted_device: Option<crate::trusted_devices::host::Attempt>,
     keyboard: bool,
     clipboard: bool,
@@ -572,6 +594,7 @@ impl Connection {
             },
             require_2fa: crate::auth_2fa::get_2fa(None),
             awaiting_2fa: false,
+            gdesk_confirmar_ate: None,
             trusted_device: None,
             // Defer display enumeration until login succeeds. Monitor login replaces this
             // with the primary index returned with the refreshed display snapshot.
@@ -750,9 +773,21 @@ impl Connection {
                     conn.on_close("Timeout", true).await;
                     break;
                 }
+                // GDesk: ninguém respondeu na máquina dentro do prazo -> conecta.
+                _ = gdesk_confirmar_prazo(conn.gdesk_confirmar_ate), if !conn.authorized => {
+                    conn.gdesk_confirmar_ate = None;
+                    log::info!("GDesk: sem resposta do usuario no prazo, conectando");
+                    if !conn.send_logon_response_and_keep_alive().await {
+                        break;
+                    }
+                    // Avisa a janela da máquina que a sessão começou.
+                    let (peer_id, nome) = (conn.lr.my_id.clone(), conn.lr.my_name.clone());
+                    conn.try_start_cm(peer_id, nome, conn.authorized);
+                }
                 Some(data) = rx_from_cm.recv() => {
                     match data {
                         ipc::Data::Authorize => {
+                            conn.gdesk_confirmar_ate = None;
                             conn.set_conn_audit_primary_auth(ConnAuditPrimaryAuth::Click);
                             conn.trusted_device = None;
                             conn.require_2fa.take();
@@ -766,7 +801,12 @@ impl Connection {
                         ipc::Data::Close => {
                             conn.chat_unanswered = false; // seen
                             conn.file_transferred = false; //seen
-                            conn.send_close_reason_no_retry("").await;
+                            let motivo = if !conn.authorized && conn.gdesk_confirmar_ate.is_some() {
+                                "O usuário recusou o acesso remoto."
+                            } else {
+                                ""
+                            };
+                            conn.send_close_reason_no_retry(motivo).await;
                             conn.on_close("connection manager", true).await;
                             break;
                         }
@@ -2397,6 +2437,13 @@ impl Connection {
             block_input: self.block_input,
             privacy_mode: self.privacy_mode,
             from_switch: self.from_switch,
+            gdesk_confirmar: if authorized {
+                0
+            } else {
+                self.gdesk_confirmar_ate
+                    .map(|t| t.saturating_duration_since(Instant::now()).as_secs() as u32)
+                    .unwrap_or(0)
+            },
         });
     }
 
@@ -3091,6 +3138,22 @@ impl Connection {
                     self.update_failure_with_scope(failure, true, 0, FailureScope::Default);
                     if !self.begin_trusted_device().await {
                         return false;
+                    }
+                    // GDesk: senha certa, mas o usuário da máquina tem N
+                    // segundos para aceitar ou recusar; sem resposta, conecta
+                    // sozinho (ver gdesk_confirmar_prazo no laço principal).
+                    let segundos = gdesk_confirmar_segundos();
+                    if segundos > 0 && self.port_forward_socket.is_none() {
+                        self.gdesk_confirmar_ate =
+                            Some(Instant::now() + Duration::from_secs(segundos));
+                        self.try_start_cm(lr.my_id, lr.my_name, false);
+                        self.send_login_error(format!(
+                            "{}{}",
+                            crate::client::LOGIN_MSG_GDESK_AGUARDANDO,
+                            segundos
+                        ))
+                        .await;
+                        return true;
                     }
                     if !self.send_logon_response_and_keep_alive().await {
                         return false;

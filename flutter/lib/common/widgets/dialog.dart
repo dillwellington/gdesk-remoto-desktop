@@ -1395,6 +1395,13 @@ void showElevationError(SessionID sessionId, String type, String title,
 
 void showWaitAcceptDialog(SessionID sessionId, String type, String title,
     String text, OverlayDialogManager dialogManager) {
+  // GDesk: "gdesk-aguardar:N" -> o usuário da máquina tem N segundos para
+  // aceitar ou recusar; sem resposta, conecta sozinho (connection.rs).
+  if (text.startsWith('gdesk-aguardar:')) {
+    final segundos = int.tryParse(text.substring('gdesk-aguardar:'.length)) ?? 0;
+    _showGDeskAguardarAceite(sessionId, segundos, dialogManager);
+    return;
+  }
   dialogManager.dismissAll();
   dialogManager.show((setState, close, context) {
     onCancel() {
@@ -1410,6 +1417,60 @@ void showWaitAcceptDialog(SessionID sessionId, String type, String title,
       onCancel: onCancel,
     );
   });
+}
+
+void _showGDeskAguardarAceite(
+    SessionID sessionId, int segundos, OverlayDialogManager dialogManager) {
+  dialogManager.dismissAll();
+  final fim = DateTime.now().add(Duration(seconds: segundos));
+  Timer? timer;
+  dialogManager.show((setState, close, context) {
+    timer ??= Timer.periodic(const Duration(seconds: 1), (t) {
+      try {
+        setState(() {});
+      } catch (_) {
+        t.cancel();
+      }
+      if (DateTime.now().isAfter(fim)) t.cancel();
+    });
+    onCancel() {
+      timer?.cancel();
+      closeConnection();
+    }
+
+    var restante = fim.difference(DateTime.now()).inSeconds;
+    if (restante < 0) restante = 0;
+    return CustomAlertDialog(
+      title: null,
+      content: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          msgboxIcon('wait-remote-accept-nook'),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  restante > 0
+                      ? 'Aguardando o usuário aceitar... $restante'
+                      : 'Conectando...',
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                    'Se ninguém responder na outra ponta, a conexão é feita automaticamente.'),
+              ],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        dialogButton('Cancel', onPressed: onCancel, isOutline: true),
+      ],
+      onCancel: onCancel,
+    );
+  }).whenComplete(() => timer?.cancel());
 }
 
 void showRestartRemoteDevice(PeerInfo pi, String id, SessionID sessionId,

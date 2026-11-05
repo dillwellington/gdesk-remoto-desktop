@@ -357,6 +357,9 @@ pub enum Data {
         block_input: bool,
         privacy_mode: bool,
         from_switch: bool,
+        // GDesk: segundos até conectar sozinho sem aceite (0 = não se aplica).
+        #[serde(default)]
+        gdesk_confirmar: u32,
     },
     ChatMessage {
         text: String,

@@ -865,6 +865,71 @@ class _PrivilegeBoardState extends State<_PrivilegeBoard> {
 
 const double buttonBottomMargin = 8;
 
+/// GDesk: aviso + contagem regressiva na máquina acessada enquanto o técnico
+/// aguarda o aceite. Quem conecta de fato ao fim do prazo é o serviço
+/// (connection.rs), esta contagem é só informativa.
+class _GDeskContagemAceite extends StatefulWidget {
+  final int segundos;
+  const _GDeskContagemAceite({Key? key, required this.segundos})
+      : super(key: key);
+
+  @override
+  State<_GDeskContagemAceite> createState() => _GDeskContagemAceiteState();
+}
+
+class _GDeskContagemAceiteState extends State<_GDeskContagemAceite> {
+  late final DateTime _fim;
+  Timer? _timer;
+  int _restante = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _fim = DateTime.now().add(Duration(seconds: widget.segundos));
+    _restante = widget.segundos;
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      final r = _fim.difference(DateTime.now()).inSeconds;
+      if (!mounted) return;
+      setState(() => _restante = r < 0 ? 0 : r);
+      if (r <= 0) _timer?.cancel();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: MyTheme.accent.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        children: [
+          Text(
+            'O suporte está solicitando acesso a este computador.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _restante > 0
+                ? 'Conecta automaticamente em $_restante s se você não responder.'
+                : 'Conectando...',
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    ).marginAll(4);
+  }
+}
+
 class _CmControlPanel extends StatelessWidget {
   final Client client;
 
@@ -1077,10 +1142,17 @@ class _CmControlPanel extends StatelessWidget {
         bind.mainGetBuildinOption(
                 key: kOptionHideElevateButtonInAcceptWindow) !=
             'Y';
-    final showAccept = model.approveMode != 'password';
+    // GDesk: com a confirmação ligada, a senha já foi aceita e o usuário
+    // tem alguns segundos para Aceitar ou Recusar antes de conectar sozinho.
+    final gdeskConfirmar = client.gdeskConfirmar > 0;
+    final showAccept = model.approveMode != 'password' || gdeskConfirmar;
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
+        if (gdeskConfirmar)
+          _GDeskContagemAceite(
+              key: ValueKey('gdesk-aceite-${client.id}'),
+              segundos: client.gdeskConfirmar),
         Offstage(
           offstage: !showElevation || !showAccept,
           child: buildButton(context, color: Colors.green[700], onClick: () {
@@ -1123,7 +1195,7 @@ class _CmControlPanel extends StatelessWidget {
                 color: Colors.transparent,
                 border: Border.all(color: Colors.grey),
                 onClick: handleDisconnect,
-                text: 'Cancel',
+                text: gdeskConfirmar ? 'Recusar' : 'Cancel',
                 textColor: null,
               ),
             ),

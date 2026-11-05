@@ -828,6 +828,8 @@ class Client {
   bool fromSwitch = false;
   bool inVoiceCall = false;
   bool incomingVoiceCall = false;
+  // GDesk: segundos até conectar sozinho sem aceite (0 = não se aplica).
+  int gdeskConfirmar = 0;
 
   RxInt unreadChatMessageCount = 0.obs;
 
@@ -857,6 +859,7 @@ class Client {
     fromSwitch = json['from_switch'];
     inVoiceCall = json['in_voice_call'];
     incomingVoiceCall = json['incoming_voice_call'];
+    gdeskConfirmar = json['gdesk_confirmar'] ?? 0;
   }
 
   Map<String, dynamic> toJson() {
@@ -882,6 +885,7 @@ class Client {
     data['from_switch'] = fromSwitch;
     data['in_voice_call'] = inVoiceCall;
     data['incoming_voice_call'] = incomingVoiceCall;
+    data['gdesk_confirmar'] = gdeskConfirmar;
     return data;
   }
 
