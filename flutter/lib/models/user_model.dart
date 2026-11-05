@@ -138,6 +138,7 @@ class UserModel {
   Future<void> reset({bool resetOther = false}) async {
     await bind.mainSetLocalOption(key: 'access_token', value: '');
     await bind.mainSetLocalOption(key: 'user_info', value: '');
+    await bind.mainSetLocalOption(key: 'gdesk_licenca', value: '');
     if (resetOther) {
       await gFFI.abModel.reset();
       await gFFI.groupModel.reset();
@@ -152,6 +153,9 @@ class UserModel {
     displayName.value = user.displayName;
     avatar.value = user.avatar;
     isAdmin.value = user.isAdmin;
+    // GDesk Remoto: lido pelo Rust (gdesk_tem_licenca) pra liberar sessões sem limite.
+    bind.mainSetLocalOption(
+        key: 'gdesk_licenca', value: user.gdeskRemoto ? 'Y' : 'N');
     bind.mainSetLocalOption(key: 'user_info', value: jsonEncode(user));
     if (isWeb) {
       // ugly here, tmp solution

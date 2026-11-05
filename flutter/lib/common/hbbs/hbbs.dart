@@ -32,6 +32,8 @@ class UserPayload {
   String? verifier;
   UserStatus status;
   bool isAdmin = false;
+  // GDesk Remoto: usuário com licença do addon (sessões sem limite de 3 min).
+  bool gdeskRemoto = false;
 
   UserPayload.fromJson(Map<String, dynamic> json)
       : name = json['name'] ?? '',
@@ -45,7 +47,8 @@ class UserPayload {
             : json['status'] == -1
                 ? UserStatus.kUnverified
                 : UserStatus.kNormal,
-        isAdmin = json['is_admin'] == true;
+        isAdmin = json['is_admin'] == true,
+        gdeskRemoto = json['gdesk_remoto'] == true;
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> map = {

@@ -289,6 +289,7 @@ impl<T: InvokeUiSession> Remote<T> {
                 let mut webrtc_suspect_since: Option<Instant> = None;
                 let mut last_rx_progress = peer.rx_progress();
                 let mut peer_gone = false;
+                let gdesk_inicio_sessao = Instant::now();
 
                 loop {
                     tokio::select! {
@@ -349,6 +350,17 @@ impl<T: InvokeUiSession> Remote<T> {
                             }
                         }
                         _ = status_timer.tick() => {
+                            if gdesk_inicio_sessao.elapsed() >= crate::common::GDESK_LIMITE_SEM_LICENCA
+                                && !crate::common::gdesk_tem_licenca()
+                            {
+                                self.handler.msgbox(
+                                    "error",
+                                    "GDesk Remoto",
+                                    "Sessão gratuita encerrada após 3 minutos. Entre com sua conta do GDesk (menu Conta) para sessões sem limite.",
+                                    "",
+                                );
+                                break;
+                            }
                             if self.handler.is_restarting_remote_device()
                                 && last_recv_time.elapsed() >= RESTART_REMOTE_DEVICE_NO_DATA_TIMEOUT
                             {

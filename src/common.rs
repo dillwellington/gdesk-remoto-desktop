@@ -2503,6 +2503,18 @@ pub fn rustdesk_interval(i: Interval) -> ThrottledInterval {
 pub const GDESK_APP_NAME: &str = "GDeskRemoto";
 pub const GDESK_SERVIDOR: &str = "remoto.gdeskapp.com.br";
 pub const GDESK_CHAVE: &str = "N+pMIaeYQp5Ek1ZXIIigSZGQ7Coav2L5Lh80q+B+vIk=";
+pub const GDESK_API: &str = "https://api.gdeskapp.com.br/remoto";
+
+// Sessão SAINDO deste app (técnico acessando alguém) sem login no GDesk com
+// licença do GDesk Remoto: encerra depois de 3 min (mesma regra do GDesk
+// Remoto antigo). A licença vem do /api/currentUser e /api/login (campo
+// "gdesk_remoto") e fica guardada em gdesk_licenca -- ver
+// flutter/lib/models/user_model.dart.
+pub const GDESK_LIMITE_SEM_LICENCA: std::time::Duration = std::time::Duration::from_secs(180);
+
+pub fn gdesk_tem_licenca() -> bool {
+    LocalConfig::get_option("gdesk_licenca") == "Y"
+}
 
 fn aplicar_cliente_gdesk() {
     let config = serde_json::json!({
@@ -2511,7 +2523,9 @@ fn aplicar_cliente_gdesk() {
             "custom-rendezvous-server": GDESK_SERVIDOR,
             "relay-server": GDESK_SERVIDOR,
             "key": GDESK_CHAVE,
-            "api-server": "",
+            // Login com a conta do GDesk (menu Conta) -- rotas /remoto/api/* no gdesk-backend.
+            "api-server": GDESK_API,
+            "disable-group-panel": "Y",
             // Atualização é feita pelo GDesk Agent, nunca pelo RustDesk oficial.
             "enable-check-update": "N",
             "allow-auto-update": "N",

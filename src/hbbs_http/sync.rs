@@ -282,6 +282,11 @@ async fn start_hbbs_sync_async() {
 }
 
 fn heartbeat_url() -> String {
+    // GDesk Remoto: o servidor de API é o gdesk-backend (só login); sem
+    // heartbeat/sysinfo a cada 3-15s de todas as máquinas instaladas.
+    if crate::common::get_app_name() == crate::common::GDESK_APP_NAME {
+        return "".to_owned();
+    }
     let url = crate::common::get_api_server(
         Config::get_option("api-server"),
         Config::get_option("custom-rendezvous-server"),
