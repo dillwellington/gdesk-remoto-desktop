@@ -1,21 +1,9 @@
 name: Full Flutter CI
 
 on:
+  # GDesk Remoto: gatilhos automáticos do RustDesk desligados neste fork
+  # (só roda manualmente). O build nosso é o gdesk-build.yml.
   workflow_dispatch:
-  pull_request:
-    paths-ignore:
-    - "docs/**"
-    - "README.md"
-  push:
-    branches:
-      - master
-    paths-ignore:
-      - ".github/**"
-      - "docs/**"
-      - "README.md"
-      - "res/**"
-      - "appimage/**"
-      - "flatpak/**"
 
 jobs:
   run-ci:

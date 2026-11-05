@@ -1,13 +1,9 @@
 name: Flutter Tag Build
 
 on:
+  # GDesk Remoto: gatilhos automáticos do RustDesk desligados neste fork
+  # (só roda manualmente). O build nosso é o gdesk-build.yml.
   workflow_dispatch:
-  push:
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
-      - '[0-9]+.[0-9]+.[0-9]+'
-      - 'v[0-9]+.[0-9]+.[0-9]+-[0-9]+'
-      - '[0-9]+.[0-9]+.[0-9]+-[0-9]+'
 
 jobs:
   run-flutter-tag-build:

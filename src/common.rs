@@ -2492,7 +2492,45 @@ pub fn rustdesk_interval(i: Interval) -> ThrottledInterval {
     ThrottledInterval::new(i)
 }
 
+// ---------------------------------------------------------------------
+// GDesk Remoto (GD Soluções): configuração do cliente embutida no binário.
+// Mesmo efeito do custom.txt de um "cliente personalizado" do RustDesk,
+// mas sem precisar de assinatura: nome do app, servidor próprio e chave
+// fixos, e configurações de rede escondidas pro usuário não trocar.
+// Um custom.txt ao lado do exe (se existir) continua sendo lido depois e
+// pode sobrescrever estes valores.
+// ---------------------------------------------------------------------
+pub const GDESK_APP_NAME: &str = "GDeskRemoto";
+pub const GDESK_SERVIDOR: &str = "remoto.gdeskapp.com.br";
+pub const GDESK_CHAVE: &str = "N+pMIaeYQp5Ek1ZXIIigSZGQ7Coav2L5Lh80q+B+vIk=";
+
+fn aplicar_cliente_gdesk() {
+    let config = serde_json::json!({
+        "app-name": GDESK_APP_NAME,
+        "override-settings": {
+            "custom-rendezvous-server": GDESK_SERVIDOR,
+            "relay-server": GDESK_SERVIDOR,
+            "key": GDESK_CHAVE,
+            "api-server": "",
+            // Atualização é feita pelo GDesk Agent, nunca pelo RustDesk oficial.
+            "enable-check-update": "N",
+            "allow-auto-update": "N",
+            "hide-network-settings": "Y",
+            "hide-server-settings": "Y",
+            "hide-proxy-settings": "Y",
+            "hide-websocket-settings": "Y",
+            "allow-command-line-settings-when-settings-disabled": "Y"
+        }
+    });
+    if let Ok(data) =
+        serde_json::from_value::<std::collections::HashMap<String, serde_json::Value>>(config)
+    {
+        aplicar_custom_client(data);
+    }
+}
+
 pub fn load_custom_client() {
+    aplicar_cliente_gdesk();
     #[cfg(debug_assertions)]
     if let Ok(data) = std::fs::read_to_string("./custom.txt") {
         read_custom_client(data.trim());
@@ -2604,13 +2642,16 @@ pub fn read_custom_client(config: &str) {
         log::error!("Failed to dec custom client config");
         return;
     };
-    let Ok(mut data) =
+    let Ok(data) =
         serde_json::from_slice::<std::collections::HashMap<String, serde_json::Value>>(&data)
     else {
         log::error!("Failed to parse custom client config");
         return;
     };
+    aplicar_custom_client(data);
+}
 
+fn aplicar_custom_client(mut data: std::collections::HashMap<String, serde_json::Value>) {
     if let Some(app_name) = data.remove("app-name") {
         if let Some(app_name) = app_name.as_str() {
             *config::APP_NAME.write().unwrap() = app_name.to_owned();

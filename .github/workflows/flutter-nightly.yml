@@ -1,9 +1,8 @@
 name: Flutter Nightly Build
 
 on:
-  schedule:
-    # schedule build every night
-    - cron: "0 0 * * *"
+  # GDesk Remoto: gatilhos automáticos do RustDesk desligados neste fork
+  # (só roda manualmente). O build nosso é o gdesk-build.yml.
   workflow_dispatch:
 
 jobs:
