@@ -702,8 +702,18 @@ pub fn set_permanent_password_with_result(password: String) -> bool {
     }
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
+        // GDesk: marca se a senha permanente foi definida À MÃO pelo app.
+        // O GDesk Agent consulta "--option gdesk-senha-manual" e, se for "Y",
+        // para de trocar a senha a cada sincronização. Senha vazia (o usuário
+        // limpou a senha) devolve o controle pro agent.
+        let gdesk_manual = if password.is_empty() { "" } else { "Y" };
         match crate::ipc::set_permanent_password_with_ack(password) {
-            Ok(ok) => ok,
+            Ok(ok) => {
+                if ok {
+                    crate::ipc::set_option("gdesk-senha-manual", gdesk_manual);
+                }
+                ok
+            }
             Err(err) => {
                 log::warn!("Failed to set permanent password via IPC: {err}");
                 false
