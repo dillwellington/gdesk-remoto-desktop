@@ -439,7 +439,9 @@ jobs:
     name: Publicar releases
     needs: [build-macos, build-linux, build-appimage]
     # Publica o que deu certo, mesmo se outra plataforma falhar.
-    if: ${{ !cancelled() && (needs.build-macos.result == 'success' || needs.build-linux.result == 'success' || needs.build-appimage.result == 'success') }}
+    # (o resultado de uma matrix é "failure" se UM item falhar, então não dá
+    # pra depender dele: publica o que tiver artefato.)
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source code
@@ -464,7 +466,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          ls -la pacotes
+          ls -la pacotes || true
+          if [ -z "$(ls -A pacotes 2>/dev/null)" ]; then echo "Nada para publicar."; exit 0; fi
           mkdir -p fixos
           # Nome com versão -> nome fixo (é o que o site usa).
           for f in pacotes/*; do
