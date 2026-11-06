@@ -111,8 +111,12 @@ jobs:
       - name: Install NASM
         run: |
           # NASM 2.16.x (o 3.x do brew quebra o aom/ffmpeg).
-          wget https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/macosx/nasm-2.16.03-macosx.zip
-          unzip nasm-2.16.03-macosx.zip
+          # nasm.us às vezes falha (wget saiu com código 4): tenta algumas vezes.
+          for i in 1 2 3 4 5; do
+            curl -fL --retry 3 -o nasm-2.16.03-macosx.zip https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/macosx/nasm-2.16.03-macosx.zip && break
+            echo "falhou (tentativa $i), esperando..."; sleep 20
+          done
+          unzip -o nasm-2.16.03-macosx.zip
           sudo cp nasm-2.16.03/nasm /usr/local/bin/nasm
           nasm --version
 
@@ -418,8 +422,10 @@ jobs:
           cmp AppDir/AppRun appimage-build/AppRun/v2.0.0/AppRun-Release-x86_64
           ls -la *.AppImage
           popd
+          # O appimage-builder roda com sudo: o arquivo sai como root.
           mkdir -p SaidaGDesk
-          mv appimage/*.AppImage SaidaGDesk/${APP_NAME}-${VERSION}-x86_64.AppImage
+          sudo mv appimage/*.AppImage SaidaGDesk/${APP_NAME}-${VERSION}-x86_64.AppImage
+          sudo chown "$(id -u):$(id -g)" SaidaGDesk/*.AppImage
 
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
