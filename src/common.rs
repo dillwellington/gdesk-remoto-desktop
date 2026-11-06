@@ -2290,19 +2290,8 @@ async fn secure_tcp_impl(conn: &mut Stream, key: &str, log_on_success: bool) -> 
 /// when the server sent something else first, nothing parseable, or closed: `secure_tcp`
 /// tolerates that for servers from before the exchange, `secure_tcp_required` does not.
 async fn key_exchange(conn: &mut Stream, key: &str, log_on_success: bool) -> ResultType<bool> {
-    // GDesk Remoto: o nosso hbbs (gdesk-remoto-servidor, base rustdesk-server
-    // OSS 1.1.17) NÃO faz a troca de chaves no TCP -- só o servidor Pro faz.
-    // Logado na conta do GDesk o app tem token, e o RustDesk passa a esperar
-    // o KeyExchange do servidor: sem resposta, a conexão caía com "Failed to
-    // secure tcp: deadline has elapsed". Aqui responde "servidor antigo" na
-    // hora (secure_tcp segue sem cifrar o canal com o hbbs; secure_tcp_required
-    // falha rápido e o WebRTC fica de fora, como já acontece com servidor OSS).
-    // A sessão entre as duas máquinas continua cifrada ponta a ponta.
-    // TODO: implementar o KeyExchange no gdesk-remoto-servidor e remover isto.
-    if get_app_name() == GDESK_APP_NAME {
-        let _ = (conn, log_on_success);
-        return Ok(false);
-    }
+    // GDesk Remoto: o gdesk-remoto-servidor faz a troca de chaves no TCP
+    // (desde 06/11/2026), então o app logado cifra o canal com o hbbs.
     let rs_pk = get_rs_pk(key);
     let Some(rs_pk) = rs_pk else {
         bail!("Handshake failed: invalid public key from rendezvous server");
