@@ -41,6 +41,8 @@ permissions:
   contents: write
 
 env:
+  # Força a "Data da Build" a ser regenerada a cada run (ver build.rs).
+  GDESK_BUILD_ID: ${{ github.run_id }}
   RUST_VERSION: "1.75"
   MAC_RUST_VERSION: "1.81"
   LLVM_VERSION: "15.0.6"
@@ -344,6 +346,7 @@ jobs:
             """ > ~/.cargo/config
             pushd /workspace
             export VCPKG_ROOT=/opt/artifacts/vcpkg
+            export GDESK_BUILD_ID=${{ github.run_id }}
             cargo build --locked --lib --features hwcodec,flutter,unix-file-copy-paste --release
             rm -rf target/release/deps target/release/build
             rm -rf ~/.cargo

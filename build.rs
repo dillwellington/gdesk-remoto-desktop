@@ -91,6 +91,10 @@ fn install_android_deps() {
 }
 
 fn main() {
+    // GDesk: com o cache do CI o build.rs não rodava de novo e a "Data da
+    // Build" (src/version.rs) ficava congelada no primeiro build. Os
+    // workflows gdesk-* definem GDESK_BUILD_ID = id do run.
+    println!("cargo:rerun-if-env-changed=GDESK_BUILD_ID");
     hbb_common::gen_version();
     install_android_deps();
     #[cfg(all(windows, feature = "inline"))]
