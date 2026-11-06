@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=GDesk Remoto
+NoDisplay=true
+MimeType=x-scheme-handler/gdeskremoto;
+TryExec=gdeskremoto
+Exec=gdeskremoto %u
+Icon=gdeskremoto
+Terminal=false
+Type=Application
+StartupNotify=false
+StartupWMClass=gdeskremoto
